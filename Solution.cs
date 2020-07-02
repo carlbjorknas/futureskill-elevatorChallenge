@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,7 +13,7 @@ namespace ElevatorChallenge
 
         public Solution()
         {
-            _elevator = new FullUpAndDownAndOpensOnlyWhenSomeoneWantsOffOrOnAndThereIsCapacityAvailableElevator();
+            _elevator = new GoesBackDownWhenNooneWantsHigherOrNooneAboveIsWaitingElevator();
         }
 
         public void Update()
@@ -27,7 +28,7 @@ namespace ElevatorChallenge
     public abstract class ElevatorBase
     {
         protected const int _weightOfLightestRider = 60;
-        protected const int _weightOfHeaviestRider = 100; 
+        protected const int _weightOfHeaviestRider = 100;
         protected int _currentFloor = 0;
         protected int _numberFloors;
         protected bool _hasOpenedDoorOnFloor = false;
@@ -65,13 +66,13 @@ namespace ElevatorChallenge
         {
             Log($"Buttons pressed: {ButtonsPressed}");
             Log($"Weight: {API.GetCurrWeight()} / {API.GetElevatorCapacity()}");
-            Log($"Level: {_currentFloor}");            
+            Log($"Level: {_currentFloor}");
             InternalUpdate();
         }
 
         protected abstract void InternalUpdate();
 
-        string ButtonsPressed { 
+        string ButtonsPressed {
             get {
                 var pressedButtons = Enumerable.Range(0, _numberFloors)
                     .Select(floor => API.GetBtnPressedStatus(floor) ? floor : -1)
@@ -84,15 +85,27 @@ namespace ElevatorChallenge
 
         protected bool AtTopFloor => _currentFloor == _numberFloors - 1;
         protected bool AtBottomFloor => _currentFloor == 0;
-        protected bool RiderWantsOffAtCurrentFloor => API.GetBtnPressedStatus(_currentFloor);
-        protected bool HasCapacityForLightRider => API.GetElevatorCapacity() - API.GetCurrWeight() >= _weightOfLightestRider;
-        protected bool RiderWaitingOnCurrentFloor => API.GetDownBtnStatus(_currentFloor) || API.GetUpBtnStatus(_currentFloor);
+        protected bool RiderWantsOffAtCurrentFloor
+            => API.GetBtnPressedStatus(_currentFloor);
+        protected bool HasCapacityForLightRider 
+            => API.GetElevatorCapacity() - API.GetCurrWeight() >= _weightOfLightestRider;
+        protected bool HasCapacityForHeavyRider
+            => API.GetElevatorCapacity() - API.GetCurrWeight() >= _weightOfHeaviestRider;
+        protected bool RiderWaitingOnCurrentFloor 
+            => API.GetDownBtnStatus(_currentFloor) || API.GetUpBtnStatus(_currentFloor);
+        protected bool RiderWantsOffOnHigherFloor
+            => FloorsAboveCurrentFloor.Any(floor => API.GetBtnPressedStatus(floor));
+        protected bool RiderWaitingOfHigherFloor
+            => FloorsAboveCurrentFloor.Any(floor => API.GetDownBtnStatus(floor) || API.GetUpBtnStatus(floor));
+
+        protected IEnumerable<int> FloorsAboveCurrentFloor
+            => Enumerable.Range(_currentFloor + 1, _numberFloors - _currentFloor - 1);
 
         protected void Log(string message)
             => Console.Out.WriteLine(message);
     }
 
-    public class FullUpAndDownAndOpensOnlyWhenSomeoneWantsOffOrOnAndThereIsCapacityAvailableElevator : ElevatorBase
+    public class GoesBackDownWhenNooneWantsHigherOrNooneAboveIsWaitingElevator : ElevatorBase
     {
         bool _goingUp = true;
 
@@ -104,11 +117,19 @@ namespace ElevatorChallenge
                 return;
             }
 
-            if (_goingUp && AtTopFloor)
-                _goingUp = false;
+            if (_goingUp)
+            {
+                var riderIsWaitingHigherUpAndCapacityExists = RiderWaitingOfHigherFloor && HasCapacityForHeavyRider;
+                if (!RiderWantsOffOnHigherFloor && !riderIsWaitingHigherUpAndCapacityExists)
+                {
+                    _goingUp = false;
+                }
+            }
 
             if (!_goingUp && AtBottomFloor)
+            { 
                 _goingUp = true;
+            }
 
             if (_goingUp)
             {
@@ -121,32 +142,61 @@ namespace ElevatorChallenge
         }
     }
 
-    public class FullUpAndDownOpenAlwaysElevator : ElevatorBase
-    {
-        bool _goingUp = true;
+    //public class FullUpAndDownAndOpensOnlyWhenSomeoneWantsOffOrOnAndThereIsCapacityAvailableElevator : ElevatorBase
+    //{
+    //    bool _goingUp = true;
 
-        protected override void InternalUpdate()
-        {
-            if (!_hasOpenedDoorOnFloor)
-            {
-                OpenDoor();
-                return;
-            }
+    //    protected override void InternalUpdate()
+    //    {
+    //        if (!_hasOpenedDoorOnFloor && (RiderWantsOffAtCurrentFloor || (HasCapacityForLightRider && RiderWaitingOnCurrentFloor)))
+    //        {
+    //            OpenDoor();
+    //            return;
+    //        }
+
+    //        if (_goingUp && AtTopFloor)
+    //            _goingUp = false;
+
+    //        if (!_goingUp && AtBottomFloor)
+    //            _goingUp = true;
+
+    //        if (_goingUp)
+    //        {
+    //            MoveUp();
+    //        }
+    //        else
+    //        {
+    //            MoveDown();
+    //        }
+    //    }
+    //}
+
+    //public class FullUpAndDownOpenAlwaysElevator : ElevatorBase
+    //{
+    //    bool _goingUp = true;
+
+    //    protected override void InternalUpdate()
+    //    {
+    //        if (!_hasOpenedDoorOnFloor)
+    //        {
+    //            OpenDoor();
+    //            return;
+    //        }
             
-            if (_goingUp && AtTopFloor)
-                _goingUp = false;
+    //        if (_goingUp && AtTopFloor)
+    //            _goingUp = false;
 
-            if (!_goingUp && AtBottomFloor)
-                _goingUp = true;
+    //        if (!_goingUp && AtBottomFloor)
+    //            _goingUp = true;
 
-            if (_goingUp)
-            {
-                MoveUp();
-            }
-            else
-            {
-                MoveDown();
-            }
-        }
-    }
+    //        if (_goingUp)
+    //        {
+    //            MoveUp();
+    //        }
+    //        else
+    //        {
+    //            MoveDown();
+    //        }
+    //    }
+    //}
 }
