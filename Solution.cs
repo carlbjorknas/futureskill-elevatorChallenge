@@ -12,7 +12,7 @@ namespace ElevatorChallenge
 
         public Solution()
         {
-            _elevator = new FullUpAndDownOpenAlwaysElevator();
+            _elevator = new FullUpAndDownAndOpensOnlyWhenSomeoneWantsOffOrOnAndThereIsCapacityAvailableElevator();
         }
 
         public void Update()
@@ -26,6 +26,8 @@ namespace ElevatorChallenge
 
     public abstract class ElevatorBase
     {
+        protected const int _weightOfLightestRider = 60;
+        protected const int _weightOfHeaviestRider = 100; 
         protected int _currentFloor = 0;
         protected int _numberFloors;
         protected bool _hasOpenedDoorOnFloor = false;
@@ -80,8 +82,43 @@ namespace ElevatorChallenge
             }
         }
 
+        protected bool AtTopFloor => _currentFloor == _numberFloors - 1;
+        protected bool AtBottomFloor => _currentFloor == 0;
+        protected bool RiderWantsOffAtCurrentFloor => API.GetBtnPressedStatus(_currentFloor);
+        protected bool HasCapacityForLightRider => API.GetElevatorCapacity() - API.GetCurrWeight() >= _weightOfLightestRider;
+        protected bool RiderWaitingOnCurrentFloor => API.GetDownBtnStatus(_currentFloor) || API.GetUpBtnStatus(_currentFloor);
+
         protected void Log(string message)
             => Console.Out.WriteLine(message);
+    }
+
+    public class FullUpAndDownAndOpensOnlyWhenSomeoneWantsOffOrOnAndThereIsCapacityAvailableElevator : ElevatorBase
+    {
+        bool _goingUp = true;
+
+        protected override void InternalUpdate()
+        {
+            if (!_hasOpenedDoorOnFloor && (RiderWantsOffAtCurrentFloor || (HasCapacityForLightRider && RiderWaitingOnCurrentFloor)))
+            {
+                OpenDoor();
+                return;
+            }
+
+            if (_goingUp && AtTopFloor)
+                _goingUp = false;
+
+            if (!_goingUp && AtBottomFloor)
+                _goingUp = true;
+
+            if (_goingUp)
+            {
+                MoveUp();
+            }
+            else
+            {
+                MoveDown();
+            }
+        }
     }
 
     public class FullUpAndDownOpenAlwaysElevator : ElevatorBase
@@ -111,8 +148,5 @@ namespace ElevatorChallenge
                 MoveDown();
             }
         }
-
-        bool AtTopFloor => _currentFloor == _numberFloors - 1;
-        bool AtBottomFloor => _currentFloor == 0;
     }
 }

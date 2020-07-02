@@ -10,7 +10,7 @@ namespace ElevatorChallenge
     {
         public static void OpenDoor() { }
         public static int GetFloorCount() => 0;
-        public static bool GetUpButtonStatus(int floor) => true;
+        public static bool GetUpBtnStatus(int floor) => true;
         public static bool GetDownBtnStatus(int floor) => true;
         public static bool GetBtnPressedStatus(int floor) => true;
         public static int GetCurrWeight() => 0;
